@@ -1,4 +1,6 @@
 import datetime
+import time
+
 import cv2
 import numpy as np
 import playsound
@@ -84,7 +86,7 @@ def save_queued_email_to_db(message):
             "An occurrence of network error led to a transmission delay,"
             "resulting in an alteration of the original timestamp for the fire incident, which was initially set at {}"
         ).format(current_time)
-        timestamped_message = f"{explanation}\n\nOriginal Message:\n{message}"
+        timestamped_message = f"{explanation}\n{message}"
 
         cursor.execute("INSERT INTO queued_emails (message) VALUES (?)", (timestamped_message,))
         connection.commit()
@@ -115,10 +117,36 @@ def create_email_db():
     connection.close()
 
 
+def send_queued_emails():
+    print("checking and sending old mails.....")
+    while True:
+        connection = sqlite3.connect('queued_emails.db')
+        cursor = connection.cursor()
+
+        cursor.execute("SELECT message FROM queued_emails")
+        queued_messages = cursor.fetchall()
+
+        for message_row in queued_messages:
+            send_email_thread(None, None, message_row[0])  # Replace None with actual coordinates and maps_link
+
+            # Remove the sent message from the database
+            cursor.execute("DELETE FROM queued_emails WHERE message=?", (message_row[0],))
+            connection.commit()
+
+        connection.close()
+
+        # Sleep for a certain duration before checking again
+        time.sleep(60)  # Adjust the sleep duration as needed
+
 video = cv2.VideoCapture(0)  # 'webcam is 0 or 1 , also can put video path.
 
 # Call the function to create the database and table
 create_email_db()
+
+# Create a thread to send queued emails in the background
+email_sender_thread = threading.Thread(target=send_queued_emails)
+email_sender_thread.start()
+
 
 while True:
     (grabbed, frame) = video.read()
@@ -168,3 +196,4 @@ while True:
 
 cv2.destroyAllWindows()
 video.release()
+
