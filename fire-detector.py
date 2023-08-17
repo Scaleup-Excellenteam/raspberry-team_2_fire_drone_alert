@@ -3,10 +3,11 @@ import cv2
 import numpy as np
 import playsound
 import threading
+import sqlite3
+import os
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-import os
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -28,6 +29,7 @@ def play_alarm_sound():
 def send_email_thread(coordinates, maps_link, message):
     global queued_emails_sent
 
+    print(message)
     # Email configuration
     sender_email = os.getenv('EMAIL')
     receiver_email = 'dronefirealert@gmail.com'
@@ -68,23 +70,30 @@ def send_email_thread(coordinates, maps_link, message):
         print("Error sending email:", e)
         # Add the email message components to the database for later sending
         with lock:
-            save_queued_emails(email_message)
+            save_queued_email_to_db(email_message)
             queued_emails_sent = True
 
 
-def save_queued_emails(message):
+def save_queued_email_to_db(message):
     try:
+        connection = sqlite3.connect('queued_emails.db')
+        cursor = connection.cursor()
+
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         explanation = (
             "An occurrence of network error led to a transmission delay,"
             "resulting in an alteration of the original timestamp for the fire incident, which was initially set at {}"
         ).format(current_time)
         timestamped_message = f"{explanation}\n\nOriginal Message:\n{message}"
-        with open("queued_emails.txt", "a") as file:
-            file.write(timestamped_message + "\n")
+
+        cursor.execute("INSERT INTO queued_emails (message) VALUES (?)", (timestamped_message,))
+        connection.commit()
+
         print("Email saved for later sending.")
     except Exception as e:
         print("Error saving email:", e)
+    finally:
+        connection.close()
 
 
 def get_gps_coordinates():
@@ -98,7 +107,18 @@ def get_google_maps_link(latitude, longitude):
     return "https://www.google.com/maps?q={},{}".format(latitude, longitude)
 
 
+def create_email_db():
+    connection = sqlite3.connect('queued_emails.db')
+    cursor = connection.cursor()
+    cursor.execute("CREATE TABLE IF NOT EXISTS queued_emails (message TEXT)")
+    connection.commit()
+    connection.close()
+
+
 video = cv2.VideoCapture(0)  # 'webcam is 0 or 1 , also can put video path.
+
+# Call the function to create the database and table
+create_email_db()
 
 while True:
     (grabbed, frame) = video.read()
