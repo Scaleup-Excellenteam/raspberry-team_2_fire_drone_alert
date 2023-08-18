@@ -1,6 +1,5 @@
 import datetime
 import time
-
 import cv2
 import numpy as np
 import playsound
@@ -11,6 +10,7 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from dotenv import load_dotenv
+import requests  # Import the requests library for location retrieval
 
 # Load environment variables from .env file
 load_dotenv()
@@ -99,10 +99,14 @@ def save_queued_email_to_db(message):
 
 
 def get_gps_coordinates():
-    # Replace with actual GPS code to get the coordinates
-    latitude = 12.345678
-    longitude = 98.765432
-    return "(Latitude: {}, Longitude: {})".format(latitude, longitude)
+    try:
+        response = requests.get('https://ipinfo.io')
+        data = response.json()
+        lat, lon = data['loc'].split(',')
+        return float(lat), float(lon)
+    except Exception as e:
+        print(f"An error occurred while getting location: {e}")
+        return None
 
 
 def get_google_maps_link(latitude, longitude):
@@ -118,7 +122,7 @@ def create_email_db():
 
 
 def send_queued_emails():
-    print("checking and sending old mails.....")
+    print("Checking for queued emails and sending if needed...")
     while True:
         connection = sqlite3.connect('queued_emails.db')
         cursor = connection.cursor()
@@ -176,7 +180,7 @@ while True:
 
         if not Email_Status and not queued_emails_sent:
             coordinates_with_maps_link = get_gps_coordinates()
-            latitude, longitude = 12.345678, 98.765432  # Replace with actual coordinates
+            latitude, longitude = get_gps_coordinates()
             maps_link = get_google_maps_link(latitude, longitude)
 
             # Define your email message here
