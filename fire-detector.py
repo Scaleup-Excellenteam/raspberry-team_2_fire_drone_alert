@@ -10,7 +10,10 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from dotenv import load_dotenv
-import requests  # Import the requests library for location retrieval
+import requests
+import asyncio
+from telegram import Bot
+
 
 # Load environment variables from .env file
 load_dotenv()
@@ -21,6 +24,19 @@ Email_Status = False
 Fire_Reported = 0
 queued_emails_sent = False
 lock = threading.Lock()  # Lock to synchronize threads
+
+
+async def telegram_notification(message):
+
+    TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
+    CHAT_ID = os.getenv('CHAT_ID')
+
+    bot = Bot(token=TELEGRAM_TOKEN)
+
+    chat_id = CHAT_ID
+
+    # Send the message
+    await bot.send_message(chat_id=chat_id, text=message)
 
 
 def play_alarm_sound():
@@ -46,7 +62,7 @@ def send_email_thread(coordinates, maps_link, message):
         msg['Subject'] = subject
         msg.attach(MIMEText(email_message, 'plain'))
 
-        # SMTP server settings
+        # SMTP server settingsf
         smtp_server = 'smtp.gmail.com'
         smtp_port = 587  # Use 465 for SSL/TLS
 
@@ -68,6 +84,10 @@ def send_email_thread(coordinates, maps_link, message):
         server.quit()
 
         print("Email sent successfully!")
+        asyncio.run(telegram_notification(message))
+        print("Telegram message sent successfully!")
+
+
     except Exception as e:
         print("Error sending email:", e)
         # Add the email message components to the database for later sending
@@ -182,6 +202,7 @@ while True:
             coordinates_with_maps_link = get_gps_coordinates()
             latitude, longitude = get_gps_coordinates()
             maps_link = get_google_maps_link(latitude, longitude)
+            maps_link = "https://www.google.com/maps/search/31.78345455410293,35.22100964747501"
 
             # Define your email message here
             email_message = "Warning: A Fire Accident has been detected.\nCoordinates: {}\nGoogle Maps: {}".format(
