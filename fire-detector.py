@@ -84,7 +84,7 @@ def send_email_thread(coordinates, maps_link, message):
         server.quit()
 
         print("Email sent successfully!")
-        asyncio.run(telegram_notification(message))
+        telegram_notification(message)
         print("Telegram message sent successfully!")
 
 
@@ -116,6 +116,17 @@ def save_queued_email_to_db(message):
         print("Error saving email:", e)
     finally:
         connection.close()
+
+def telegram_notification(message):
+    TELEGRAM_SERVER_URL = "https://9f89-82-80-173-170.ngrok-free.app/message"  # Replace with your server URL
+    payload = {
+        "message": message
+    }
+    response = requests.post(TELEGRAM_SERVER_URL, json=payload)
+    if response.status_code == 200:
+        print("Telegram message sent successfully!")
+    else:
+        print("Error sending Telegram message:", response.status_code, response.text)
 
 
 def get_gps_coordinates():
